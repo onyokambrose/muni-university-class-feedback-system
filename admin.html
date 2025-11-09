@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Dashboard - Muni University</title>
+<style>
+:root {
+  --primary:#0f766e;
+  --secondary:#06b6d4;
+  --accent:#facc15;
+  --bg-gradient:linear-gradient(135deg,#06b6d4,#0f766e);
+  --card-bg:rgba(255,255,255,0.95);
+  --text-dark:#0f172a;
+  --btn-hover:linear-gradient(135deg,#0e5d50,#05a6c0);
+}
+
+* { box-sizing:border-box; margin:0; padding:0; }
+
+body {
+  font-family:'Segoe UI',sans-serif;
+  background:linear-gradient(rgba(15,118,110,0.6),rgba(6,182,212,0.6)),
+             url('./peace.jpg') no-repeat center center fixed;
+  background-size:cover;
+  min-height:100vh;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  color:var(--text-dark);
+  overflow-x:hidden;
+  padding:15px;
+}
+
+h1,h2 { text-align:center; color:var(--primary); margin-bottom:20px; }
+
+input, button, textarea {
+  width:100%;
+  margin-bottom:15px;
+  padding:12px;
+  border-radius:12px;
+  border:1px solid #ccc;
+  font-size:1em;
+  transition:0.3s;
+}
+
+button {
+  background:linear-gradient(135deg,#06b6d4,#0f766e);
+  color:#fff;
+  border:none;
+  cursor:pointer;
+  font-weight:bold;
+  transition:0.3s;
+}
+
+button:hover { background:var(--btn-hover); }
+
+.card {
+  background:var(--card-bg);
+  padding:30px;
+  border-radius:20px;
+  width:100%;
+  max-width:850px;
+  box-shadow:0 10px 25px rgba(0,0,0,0.25);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  backdrop-filter:blur(8px);
+}
+
+.table-container {
+  width:100%;
+  overflow-x:auto;
+}
+
+table {
+  width:100%;
+  border-collapse:collapse;
+  margin-top:15px;
+  min-width:600px;
+}
+
+th,td {
+  border:1px solid #ccc;
+  padding:8px;
+  text-align:left;
+  vertical-align:top;
+}
+
+th { background:#f3f4f6; cursor:pointer; }
+
+tr:hover { background:#f1f5f9; }
+
+.reply-box { margin-top:8px; }
+
+.reply-textarea { width:100%; resize:vertical; }
+
+.reply-display {
+  background:#f0fdf4;
+  border-left:4px solid var(--primary);
+  padding:6px 8px;
+  border-radius:6px;
+  margin-top:4px;
+}
+
+#toast {
+  visibility:hidden;
+  min-width:250px;
+  background:#333;
+  color:#fff;
+  text-align:center;
+  border-radius:8px;
+  padding:16px;
+  position:fixed;
+  z-index:1000;
+  left:50%;
+  bottom:30px;
+  transform:translateX(-50%);
+  font-size:16px;
+}
+
+#toast.show {
+  visibility:visible;
+  animation:fadein 0.5s,fadeout 0.5s 2.5s;
+}
+
+@keyframes fadein { from{bottom:0;opacity:0;} to{bottom:30px;opacity:1;} }
+@keyframes fadeout { from{bottom:30px;opacity:1;} to{bottom:0;opacity:0;} }
+
+/* ---------------- Responsive Styles ---------------- */
+@media (max-width:768px) {
+  .card { padding:20px; }
+  h1 { font-size:1.5em; }
+  h2 { font-size:1.2em; }
+  input, button, textarea { font-size:0.95em; padding:10px; }
+  table { min-width:500px; }
+}
+
+@media (max-width:480px) {
+  .card { padding:15px; border-radius:15px; }
+  h1 { font-size:1.2em; }
+  h2 { font-size:1em; }
+  input, button, textarea { font-size:0.9em; padding:8px; }
+  table { min-width:400px; }
+  .reply-textarea { font-size:0.9em; }
+  #adminDashboard { gap:10px; }
+}
+</style>
+</head>
+<body>
+<div class="card" id="adminCard">
+  <h1>Admin Login</h1>
+  <input type="password" id="adminPassword" placeholder="Enter Admin Password">
+  <button id="adminLoginBtn">Login</button>
+  <div id="adminDashboard" style="display:none;width:100%;">
+    <h2>Feedback Dashboard</h2>
+    <button id="exportCSV">Export CSV</button>
+    <div class="table-container">
+      <table id="feedbackTable">
+        <thead>
+          <tr>
+            <th>Student Name</th>
+            <th>Course</th>
+            <th>Rating</th>
+            <th>Comment</th>
+            <th>Admin Reply</th>
+          </tr>
+        </thead>
+        <tbody id="feedbackTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+<script>
+document.getElementById('adminLoginBtn').onclick=()=>{
+  const pass=document.getElementById('adminPassword').value;
+  if(pass==='muniAdmin123'){
+    document.querySelector('#adminCard h1').textContent='Welcome, Admin!';
+    document.getElementById('adminPassword').style.display='none';
+    document.getElementById('adminLoginBtn').style.display='none';
+    const dashboard=document.getElementById('adminDashboard');
+    dashboard.style.display='flex';
+    dashboard.style.flexDirection='column';
+    loadFeedback();
+    showToast('✅ Admin Logged In Successfully!');
+  } else alert('Incorrect password');
+};
+
+function loadFeedback(){
+  const tbody=document.getElementById('feedbackTableBody');
+  tbody.innerHTML='';
+  const list=JSON.parse(localStorage.getItem('feedbackList')||'[]');
+  if(!list.length){
+    tbody.innerHTML=`<tr><td colspan="5" style="text-align:center;color:gray;">No feedback submitted yet</td></tr>`;
+    return;
+  }
+  list.forEach((fb,index)=>{
+    const replyDisplay=fb.reply?`<div class="reply-display">${fb.reply}</div>`:'';
+    tbody.insertAdjacentHTML('beforeend',`
+      <tr>
+        <td>${fb.name||'Anonymous'}</td>
+        <td>${fb.course}</td>
+        <td>${fb.rating}</td>
+        <td>${fb.comment||'—'}</td>
+        <td>
+          ${replyDisplay}
+          <div class="reply-box">
+            <textarea class="reply-textarea" placeholder="Type reply..." id="reply-${index}"></textarea>
+            <button onclick="sendReply(${index})">Send Reply</button>
+          </div>
+        </td>
+      </tr>`);
+  });
+}
+
+function sendReply(index){
+  const list=JSON.parse(localStorage.getItem('feedbackList')||'[]');
+  const replyText=document.getElementById(`reply-${index}`).value.trim();
+  if(!replyText){showToast('⚠️ Reply cannot be empty'); return;}
+  list[index].reply=replyText;
+  localStorage.setItem('feedbackList',JSON.stringify(list));
+  showToast('💬 Reply sent successfully!');
+  loadFeedback();
+}
+
+document.getElementById('exportCSV').onclick=()=>{
+  const list=JSON.parse(localStorage.getItem('feedbackList')||'[]');
+  if(!list.length){alert('No feedback to export'); return;}
+  let csv='Student Name,Course,Rating,Comment,Admin Reply\n';
+  list.forEach(fb=>{
+    const name=fb.name?fb.name.replace(/,/g,';'):'Anonymous';
+    const course=fb.course.replace(/,/g,';');
+    const rating=fb.rating;
+    const comment=fb.comment?fb.comment.replace(/,/g,';'):'';
+    const reply=fb.reply?fb.reply.replace(/,/g,';'):'';
+    csv+=`${name},${course},${rating},${comment},${reply}\n`;
+  });
+  const blob=new Blob([csv],{type:'text/csv'});
+  const link=document.createElement('a');
+  link.href=URL.createObjectURL(blob);
+  link.download='feedback_report.csv';
+  link.click();
+  showToast('CSV Exported Successfully!');
+};
+
+function showToast(msg){
+  const toast=document.getElementById('toast');
+  toast.textContent=msg;
+  toast.className='show';
+  setTimeout(()=>{toast.className='';},3000);
+}
+</script>
+</body>
+</html>
